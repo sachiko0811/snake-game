@@ -4,7 +4,8 @@ import Navigation from './components/Navigation';
 import Field from './components/Field';
 import Button from './components/Button';
 import ManipulationPanel from './components/ManipulationPanel';
-import { initFields } from './utils';
+// import { initFields } from './utils';
+import { initFields, getFoodPosition } from './utils'
 
 // const fields = initFields(35)
 // fields[17][17] = 'snake'
@@ -13,6 +14,11 @@ import { initFields } from './utils';
 const initialPosition = { x: 17, y: 17 }
 const initialValues = initFields(35, initialPosition)
 const defaultInterval =  100
+const defaultDifficulty = 3
+
+const Difficulty = [1000, 500, 100, 50, 10]
+
+// initialValues[9][9] = 'food'
 
  const GameStatus = Object.freeze({
   init:  'init',
@@ -70,30 +76,45 @@ const isCollision = (fieldSize, position) => {
   return false;
 }
 
+const isEatingMyself = (fields, position) => {
+  return fields[position.y][position.x] === 'snake'
+}
+
 function App() {
 
   const [fields, setFields] = useState(initialValues)
-  const [position, setPosition] = useState()
+  // const [position, setPosition] = useState()
+  const [body, setBody] = useState([])
   const [status, setStatus] = useState(GameStatus.init)
   // const [status, setStatus] = useState('init')
   const [tick, setTick]  = useState(0)
   const [direction, setDirection] = useState(Direction.up)
+  // const [difficulty, setDifficulty] = useState(3)
+  const [difficulty, setDifficulty] = useState(defaultDifficulty)
 
   useEffect(() => {
-    setPosition(initialPosition)
+    // setPosition(initialPosition)
+    setBody([initialPosition]) //?
+    // setBody(
+    //   new Array(15).fill('').map((_item, index) => ({ x: 17, y: 17 + index })),
+    // )
     // managing the time of this game
+    const interval = Difficulty[difficulty - 1]
     timer = setInterval(() => {
       // if(!position) {
       //   return
       // }
       // goUp()
       setTick(tick => tick + 1)
-    }, defaultInterval)
+    // }, defaultInterval)
+    }, interval)
     return unsubscribe
-  }, [])
+  // }, [])
+  },[difficulty])
 
   useEffect(() => {
-    if (!position || status !== GameStatus.playing) {
+    // if (!position || status !== GameStatus.playing) {
+      if(body.length === 0 || status !== GameStatus.playing) {
       return
     }
     // goUp()
@@ -106,13 +127,16 @@ function App() {
 
   const onStart  = () => setStatus(GameStatus.playing)
 
+  const onStop = () => setStatus(GameStatus.suspended)
+
   const onRestart = () => {
     timer = setInterval(() => {
       setTick(tick => tick + 1)
     }, defaultInterval)
     setDirection(Direction.up)
     setStatus(GameStatus.init)
-    setPosition(initialPosition)
+    // setPosition(initialPosition)
+    setBody([initialPosition])
     setFields(initFields(35, initialPosition))
   }
 
@@ -126,6 +150,16 @@ function App() {
       }
       setDirection(newDirection)
     }, [direction, status])
+
+    const onChangeDifficulty = useCallback((difficulty) => {
+      if(status !== GameStatus.init) {
+        return
+      }
+      if(difficulty < 1 || difficulty > difficulty.length) {
+        return
+      }
+      setDifficulty(difficulty)
+    }, [status, difficulty])
   
     useEffect(() => {
       const handleKeyDown = (e) => {
@@ -143,7 +177,8 @@ function App() {
 
   // const goUp = () => {
     const handleMoving = () => {
-    const { x, y } = position
+    // const { x, y } = position
+    const { x, y } = body[0]
     // const nextY = Math.max(y-1,  0)
     // const newPosition = { x, y: y - 1}
     const delta = Delta[direction]
@@ -151,16 +186,30 @@ function App() {
       x: x + delta.x,
       y: y + delta.y
     }
-    if(isCollision(fields.length, newPosition)) {
+    // if(isCollision(fields.length, newPosition)) {
+      if(isCollision(fields.length, newPosition) || isEatingMyself(fields, newPosition)) {
       // unsubscribe()
       return false
     }
-    fields[y][x] = ''
+    // fields[y][x] = ''
+    const newBody = [...body]
+    if(fields[newPosition.y][newPosition.x] !== 'food') {
+      const removingTrack = newBody.pop()
+      fields[removingTrack.y][removingTrack.x] = ''
+    // }
+    } else {
+      const food = getFoodPosition(fields.length, [...newBody, newPosition])
+      fields[food.y][food.x] = 'food'
+    }
     // fields[nextY][x] = 'snake'
     // setPosition({ x,y: nextY })
     // fields[newPosition.y][x] = 'snake'
     fields[newPosition.y][newPosition.x] = 'snake'
-    setPosition(newPosition)
+    // setPosition(newPosition)
+    // setBody([newPosition])
+    newBody.unshift(newPosition)
+
+    setBody(newBody)
     setFields(fields)
     return true
   }
@@ -173,7 +222,11 @@ function App() {
         <div className="title-container">
           <h1 className="title">Snake Game</h1>
         </div>
-        <Navigation />
+        <Navigation 
+        length={body.length} 
+        difficulty={difficulty}
+        onChangeDifficulty={onChangeDifficulty}
+        />
       </header>
       <main className="main">
         <Field fields={fields} />
@@ -187,6 +240,7 @@ function App() {
         status={status}
         onStart={onStart}
         onRestart={onRestart}
+        onStop={onStop}
         />
         <ManipulationPanel onChange={onChangeDirection}/>
       </footer>
