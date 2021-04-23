@@ -5,7 +5,7 @@
 
 
 
-You can play this game using any devices. I built this app with React.
+You can play this game using any devices.
 
 **Languages:**
 
